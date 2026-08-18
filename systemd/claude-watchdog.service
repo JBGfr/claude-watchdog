@@ -1,0 +1,33 @@
+[Unit]
+Description=Claude Watchdog - Supervisor fuer Claude-Code-Sessions
+# %h wird von systemd zum Home des Nutzers aufgeloest - keine feste Maschine.
+# Der Pfad ist der Default aus config.py; mit gesetztem CW_BASE_DIR liegt das
+# Log anderswo.
+Documentation=file:%h/.claude-watchdog/watchdog.log
+# Der Watchdog braucht die Desktop-Session (notify-send) und Netz.
+After=graphical-session.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/claude-watchdog run
+WorkingDirectory=%h
+
+# claude liegt in ~/.local/bin, notify-send in /usr/bin.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Der User-Manager erbt DISPLAY/DBUS nicht zuverlaessig aus der XFCE-Sitzung;
+# ohne diese beiden kommt keine Desktop-Benachrichtigung an.
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=%t/bus
+Environment=DISPLAY=:0
+
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+# Beim Stoppen NUR den Daemon beenden. Von ihm gestartete claude-Laeufe sollen
+# weiterlaufen und beim naechsten Start wieder adoptiert werden - genau das
+# macht recovery.terminate_all(). Mit dem Default (control-group) wuerde
+# systemd sie mit abraeumen.
+KillMode=process
+
+[Install]
+WantedBy=default.target

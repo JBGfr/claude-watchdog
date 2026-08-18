@@ -1,0 +1,41 @@
+#!/bin/sh
+# Startet die CLI aus dem Repo, in dem dieser Wrapper liegt.
+#
+# Das Repo-Verzeichnis wird aus dem eigenen Pfad ermittelt, NICHT aus einer
+# Umgebungsvariablen: CW_BASE_DIR ist in config.py das DATENverzeichnis
+# (~/.claude-watchdog). Wer es fuer seine Daten setzt, darf damit nicht den
+# Wrapper verbiegen.
+set -eu
+
+# $0 zeigt in der Regel auf den Symlink ~/.local/bin/claude-watchdog, nicht
+# ins Repo - also aufloesen. readlink -f waere kuerzer, ist aber nicht POSIX;
+# die Schleife laeuft auch dort, wo es das Flag nicht gibt.
+self=$0
+case $self in
+    */*) ;;
+    *) self=$(command -v -- "$self") ;;
+esac
+hops=0
+while [ -L "$self" ]; do
+    hops=$((hops + 1))
+    [ "$hops" -le 40 ] || { echo "Symlink-Schleife bei $0" >&2; exit 1; }
+    link=$(readlink "$self")
+    case $link in
+        /*) self=$link ;;
+        *)  self=$(dirname "$self")/$link ;;
+    esac
+done
+BASE=$(cd -P -- "$(dirname -- "$self")/.." && pwd)
+
+# Das Projekt ist stdlib-only. Das venv wird genutzt, wenn es da ist, ist aber
+# keine Voraussetzung - sonst liesse sich das Repo nicht ohne Bauschritt nutzen.
+if [ -x "$BASE/.venv/bin/python" ]; then
+    PY="$BASE/.venv/bin/python"
+else
+    PY=python3
+fi
+
+# BASE liegt auf dem PYTHONPATH, damit das Paket ohne Installation gefunden wird.
+PYTHONPATH="$BASE${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+exec "$PY" -m claude_watchdog.cli "$@"

@@ -1,0 +1,29 @@
+# Laufzeitdaten - gehoeren zur Installation, nicht zum Code.
+#
+# Die Muster decken bewusst auch Kopien ab: '~/.claude-watchdog' ist ein
+# Symlink auf dieses Verzeichnis, die Datenbank liegt also mitten in der
+# Arbeitskopie. Eine vor einer Migration angelegte Sicherung hiess
+# 'state.db.vor-mute-until-20260731' und passte auf keines der frueheren
+# Muster - 'git add -A' hat sie prompt mit eingecheckt (2026-07-31).
+.venv/
+state.db
+state.db.*
+state.db-journal
+state.db-shm
+state.db-wal
+watchdog.log
+watchdog.log.*
+runs/
+daemon.lock
+STOP
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Nur lokal: die Vault-Notiz zu diesem Projekt (liegt im Obsidian-Vault) und
+# die persoenlichen Claude-Einstellungen. Beides gehoert nicht ins Paket, das
+# ein Fremder auscheckt.
+projekt-claude-watchdog.md
+.claude/

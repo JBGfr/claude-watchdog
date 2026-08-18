@@ -1,0 +1,24 @@
+# Testlauf bei jedem Push und jedem Pull Request.
+#
+# Es wird nichts installiert: das Projekt ist stdlib-only, unittest liegt in
+# der Standardbibliothek. Fremdaktionen ausser checkout und setup-python
+# kommen hier nicht hinein.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Gleiche Version wie das Projekt-venv (siehe CLAUDE.md).
+          python-version: '3.13'
+
+      - name: Tests
+        run: python3 -m unittest discover -s tests -v

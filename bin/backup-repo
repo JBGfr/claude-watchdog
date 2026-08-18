@@ -1,0 +1,85 @@
+#!/bin/sh
+# Sicherung des Watchdog-Verzeichnisses als datiertes Archiv.
+#
+# Enthalten sind Code, git-Historie, state.db und Log - also auch das, was
+# NICHT auf GitHub liegt. Ausgelassen wird nur .venv: 12 MB, die sich mit
+# `python3 -m venv` in Sekunden neu bauen lassen.
+#
+# Es wird nichts geloescht. Alte Sicherungen bleiben liegen, aufgeraeumt wird
+# von Hand.
+set -eu
+
+# Repo-Verzeichnis aus dem eigenen Pfad ermitteln - nicht aus CW_BASE_DIR:
+# das ist in config.py das DATENverzeichnis und darf dieses Skript nicht
+# verbiegen. $0 zeigt beim Aufruf ueber ~/.local/bin auf den Symlink, also
+# aufloesen (readlink -f ist nicht POSIX, darum die Schleife).
+self=$0
+case $self in
+    */*) ;;
+    *) self=$(command -v -- "$self") ;;
+esac
+hops=0
+while [ -L "$self" ]; do
+    hops=$((hops + 1))
+    [ "$hops" -le 40 ] || { echo "Symlink-Schleife bei $0" >&2; exit 1; }
+    link=$(readlink "$self")
+    case $link in
+        /*) self=$link ;;
+        *)  self=$(dirname "$self")/$link ;;
+    esac
+done
+BASE=$(cd -P -- "$(dirname -- "$self")/.." && pwd)
+DEST="${CW_BACKUP_DIR:-$HOME/backups}"
+NAME=$(basename "$BASE")   # claude-watchdog - so heisst es im Archiv
+LABEL=${NAME#.}            # fuehrender Punkt wird entfernt, falls BASE je
+                           # wieder ein verstecktes Verzeichnis ist
+
+[ -d "$BASE" ] || { echo "kein Verzeichnis: $BASE" >&2; exit 1; }
+mkdir -p "$DEST"
+
+OUT="$DEST/$LABEL.bak-$(date +%Y%m%d-%H%M%S).tar.gz"
+
+# Erst unter .part schreiben, dann umbenennen: ein abgebrochener Lauf
+# hinterlaesst so kein halbes Archiv, das wie eine gueltige Sicherung aussieht.
+tar czf "$OUT.part" -C "$(dirname "$BASE")" \
+    --exclude="$NAME/.venv" --exclude='__pycache__' "$NAME"
+mv "$OUT.part" "$OUT"
+
+# Lesbarkeit pruefen - ein stilles kaputtes Archiv waere schlimmer als keins.
+tar tzf "$OUT" >/dev/null
+
+# state.db wird im laufenden Betrieb kopiert (SQLite im WAL-Modus). Das ist
+# zusammen mit -wal/-shm wiederherstellbar, aber nicht garantiert: deshalb
+# hier nachsehen statt hoffen. Ein Befund macht die Sicherung nicht wertlos
+# (der Code ist heil), muss aber auffallen.
+if command -v python3 >/dev/null 2>&1; then
+    python3 - "$OUT" "$NAME" <<'PY' || echo "WARNUNG: state.db in der Sicherung ist nicht pruefbar" >&2
+import sqlite3, sys, tarfile, tempfile, os, shutil
+archive, name = sys.argv[1], sys.argv[2]
+tmp = tempfile.mkdtemp()
+try:
+    with tarfile.open(archive) as tf:
+        members = [m for m in tf.getmembers()
+                   if m.name.startswith("%s/state.db" % name)]
+        if not members:
+            print("Hinweis: keine state.db in der Sicherung")
+            raise SystemExit(0)
+        for m in members:
+            m.name = os.path.basename(m.name)
+            # filter="data": ab Python 3.14 ohnehin Vorgabe, hier explizit,
+            # damit es keine Warnung gibt und die Metadaten egal sind.
+            tf.extract(m, tmp, filter="data")
+    con = sqlite3.connect(os.path.join(tmp, "state.db"))
+    result = con.execute("PRAGMA integrity_check").fetchone()[0]
+    tasks = con.execute("select count(*) from tasks").fetchone()[0]
+    con.close()
+    if result != "ok":
+        print("WARNUNG: state.db integrity_check = %s" % result, file=sys.stderr)
+        raise SystemExit(1)
+    print("state.db geprueft: ok, %d Tasks" % tasks)
+finally:
+    shutil.rmtree(tmp, ignore_errors=True)
+PY
+fi
+
+echo "Sicherung: $OUT ($(du -h "$OUT" | cut -f1))"

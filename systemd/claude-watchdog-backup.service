@@ -1,0 +1,9 @@
+[Unit]
+Description=Sicherung des Claude-Watchdog-Verzeichnisses
+
+[Service]
+Type=oneshot
+# Ueber den Symlink aus install.sh, damit hier kein ~/Projekte angenommen wird.
+ExecStart=%h/.local/bin/claude-watchdog-backup
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Kein [Install]: gestartet wird ausschliesslich ueber den Timer.

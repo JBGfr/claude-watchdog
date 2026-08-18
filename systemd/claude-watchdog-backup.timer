@@ -1,0 +1,13 @@
+[Unit]
+Description=Taegliche Sicherung des Claude-Watchdog-Verzeichnisses
+
+[Timer]
+OnCalendar=daily
+# Streuung, damit nicht alles gleichzeitig um Mitternacht losrennt.
+RandomizedDelaySec=30m
+# War der Rechner zum Termin aus, wird der Lauf beim naechsten Start
+# nachgeholt - ohne das gaebe es an ausgeschalteten Tagen keine Sicherung.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
