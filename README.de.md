@@ -15,11 +15,31 @@ headless Lauf.
 Was der Watchdog liest, schreibt und startet — und wie man das selbst nachprüft
 — steht in [SECURITY.md](SECURITY.md).
 
+[![Release](https://img.shields.io/github/v/release/JBGfr/claude-watchdog?label=download&color=d97757)](https://github.com/JBGfr/claude-watchdog/releases/latest)
+
 ![claude-watchdog status im Demo-Modus](assets/screenshot.png)
 
 *Das Bild entsteht im Demo-Modus (`CW_DEMO=1 claude-watchdog status`), der die
 Taskliste durch erfundene ersetzt — die echte trägt Sitzungstitel und
 Projektpfade.*
+
+## Herunterladen
+
+Die neueste Fassung als Archiv, oder das Repo klonen:
+
+```sh
+# Release-Archiv
+curl -L https://github.com/JBGfr/claude-watchdog/archive/refs/tags/v1.0.0.tar.gz | tar xz
+cd claude-watchdog-1.0.0 && ./install.sh
+
+# oder der aktuelle Stand
+git clone https://github.com/JBGfr/claude-watchdog.git
+cd claude-watchdog && ./install.sh
+```
+
+`install.sh` legt ausschließlich Symlinks in `~/.local/bin` und
+`~/.config/systemd/user` an; es startet und aktiviert nichts. Voraussetzungen
+und die optionale Netz-Isolation stehen weiter unten.
 
 ## Zwei Betriebsarten
 
