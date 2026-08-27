@@ -275,6 +275,7 @@ Shell.
 | `CW_LOG_REPEAT_INTERVAL` | `1800` | Sekunden, die eine unveränderte Entscheidung ohne Eingriff still bleibt (`0` = jede Runde protokollieren) |
 | `CW_NOTIFY` | `1` | Desktop-Meldungen |
 | `CW_NOTIFY_BIN` | `notify-send` | Meldeprogramm |
+| `CW_NOTIFY_MAX_PER_HOUR` | `0` | harte Obergrenze für Desktop-Meldungen je gleitender Stunde, die Drosselmeldung eingerechnet, `0` = keine Grenze. Der letzte Platz der Stunde trägt den Hinweis, dass es ab jetzt nur noch ins Log geht; das Log bekommt immer alles |
 | `CW_BACKUP_DIR` | `~/backups` | Zielverzeichnis von `bin/backup-repo` (nur dieses Skript, der Daemon liest es nicht) |
 
 ## Aufbau
@@ -308,7 +309,7 @@ python3 -m unittest discover -s tests -q
 Kein venv nötig, das Projekt ist stdlib-only; wo eines liegt, geht auch
 `.venv/bin/python -m unittest discover -s tests -q`.
 
-245 Tests (Stand 2026-08-17, mit dem Befehl darüber nachgezählt), ohne
+280 Tests (Stand 2026-08-17, mit dem Befehl darüber nachgezählt), ohne
 Fremdpakete. Abgedeckt sind die Klassifikation (inklusive der realen
 Ereignisfolgen aus echten Läufen), die Backoff-Regeln, die
 Sicherheitsinvariante, dass observed-Sessions nie angefasst werden, und die

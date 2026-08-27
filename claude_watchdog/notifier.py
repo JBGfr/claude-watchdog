@@ -9,7 +9,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import time
-from typing import Protocol
+from typing import Callable, Protocol
 
 from . import config
 from .logging_setup import get
@@ -50,15 +50,40 @@ class NotifySendNotifier:
 
     Eine Meldung ist Nebensache. Die Ueberwachung darf darauf nie warten,
     deshalb wird nur gestartet und beim naechsten Mal eingesammelt.
+
+    Dazu eine gleitende Obergrenze (CW_NOTIFY_MAX_PER_HOUR): hoechstens N
+    Meldungen je Stunde landen auf dem Desktop, alles weitere nur noch im Log.
+    Beim Zudrehen geht genau eine Meta-Meldung raus ("weitere Meldungen bis
+    HH:MM nur im Log"), denn eine schweigende Drossel sieht von aussen aus wie
+    ein kaputter Melder.
     """
 
     #: Laenger darf ein notify-send nicht haengen, dann wird es abgeraeumt.
     HAENGT_AB = 30
 
-    def __init__(self, binary: str | None = None):
+    #: Laenge des gleitenden Fensters der Stundengrenze in Sekunden.
+    FENSTER = 3600
+
+    def __init__(self, binary: str | None = None,
+                 max_per_hour: int | None = None,
+                 clock: Callable[[], float] = time.monotonic):
         self.binary = binary or config.NOTIFY_BIN
+        #: Hoechstens so viele Desktop-Meldungen je gleitender Stunde,
+        #: <= 0 bedeutet unbegrenzt.
+        self.max_per_hour = (
+            config.NOTIFY_MAX_PER_HOUR if max_per_hour is None else max_per_hour
+        )
+        #: Zeitquelle der Grenze, injizierbar fuer Tests ohne sleep. Monoton,
+        #: damit ein NTP-Sprung oder die Zeitumstellung die Drossel weder
+        #: aufreisst noch fuer eine Stunde zudreht.
+        self.clock = clock
         #: Gestartete, noch nicht eingesammelte Aufrufe: [(Startzeit, Popen)].
         self._offen: list[tuple[float, subprocess.Popen]] = []
+        #: Zeitpunkte (clock) der zugestellten Meldungen im laufenden Fenster.
+        self._fenster: list[float] = []
+        #: Ende der laufenden Drosselperiode, solange sie laeuft. Dient
+        #: zugleich als Merker, dass die Meta-Meldung schon raus ist.
+        self._gedrosselt_bis: float | None = None
 
     def _einsammeln(self, now: float) -> None:
         """Fertige Aufrufe abholen, haengende abraeumen.
@@ -90,10 +115,49 @@ class NotifySendNotifier:
             offen.append((start, p))
         self._offen = offen
 
-    def send(self, title: str, body: str, urgency: str = URGENCY_NORMAL) -> None:
-        log.info("notification", extra={"title": title, "body": body, "urgency": urgency})
-        now = time.time()
-        self._einsammeln(now)
+    def _darf_auf_den_desktop(self, now: float) -> bool:
+        """Stundengrenze pruefen; beim Zudrehen einmalig die Meta-Meldung.
+
+        Die Grenze ist eine harte Obergrenze fuer ALLES, was auf dem Desktop
+        landet - die Meta-Meldung eingeschlossen.
+
+        `now` ist Wanduhrzeit und wird nur fuer den lesbaren Zeitpunkt im
+        Text gebraucht; gerechnet wird mit self.clock().
+        """
+        if self.max_per_hour <= 0:
+            return True
+        jetzt = self.clock()
+        self._fenster = [t for t in self._fenster if jetzt - t < self.FENSTER]
+        # Der letzte Platz der Stunde gehoert der Drosselmeldung. Sonst waere
+        # die Grenze keine: die Meldung kaeme ZUSAETZLICH zu den N Blasen, und
+        # bei Dauerflut wurden so 5 statt 4 Blasen pro Stunde gemessen. Bei
+        # max_per_hour == 1 gaebe es dann gar keine echte Meldung mehr - dort
+        # gilt der eine Platz der echten Meldung, ohne Drosselhinweis.
+        fuer_echte = self.max_per_hour - 1 if self.max_per_hour > 1 else 1
+        if len(self._fenster) < fuer_echte:
+            self._fenster.append(jetzt)
+            self._gedrosselt_bis = None
+            return True
+        if self._gedrosselt_bis is None and len(self._fenster) < self.max_per_hour:
+            # Die Meta-Meldung belegt diesen Platz selbst - nur angehaengt,
+            # nie gegen eine aeltere getauscht: ein Tausch haette eine noch
+            # gueltige Meldung vergessen und damit Kapazitaet freigegeben.
+            self._fenster.append(jetzt)
+            self._gedrosselt_bis = self._fenster[0] + self.FENSTER
+            rest = max(0.0, self._gedrosselt_bis - jetzt)
+            bis = time.strftime("%H:%M", time.localtime(now + rest))
+            titel = "Claude Watchdog: Meldungen gedrosselt"
+            text = ("Grenze von %d Meldungen pro Stunde erreicht. "
+                    "Weitere Meldungen bis %s nur im Log." % (self.max_per_hour, bis))
+            log.info("notification (drossel)", extra={
+                "title": titel, "body": text, "urgency": URGENCY_LOW,
+                "max_per_hour": self.max_per_hour, "bis": bis,
+            })
+            self._zustellen(titel, text, URGENCY_LOW, now)
+        return False
+
+    def _zustellen(self, title: str, body: str, urgency: str, now: float) -> None:
+        """Startet notify-send, ohne auf das Ende zu warten."""
         try:
             p = subprocess.Popen(
                 [self.binary, "-a", "Claude Watchdog", "-u", urgency, title, body],
@@ -104,6 +168,16 @@ class NotifySendNotifier:
             log.warning("notify-send fehlgeschlagen", extra={"error": str(exc)})
             return
         self._offen.append((now, p))
+
+    def send(self, title: str, body: str, urgency: str = URGENCY_NORMAL) -> None:
+        # Das Log bekommt immer alles - die Grenze gilt nur fuer notify-send,
+        # sonst wuerde die Drossel die Nachvollziehbarkeit mitnehmen.
+        log.info("notification", extra={"title": title, "body": body, "urgency": urgency})
+        now = time.time()
+        self._einsammeln(now)
+        if not self._darf_auf_den_desktop(now):
+            return
+        self._zustellen(title, body, urgency, now)
 
 
 class MultiNotifier:

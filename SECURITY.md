@@ -97,7 +97,7 @@ resolve.
 | Program | Started at | Why |
 |---|---|---|
 | `claude` (`config.CLAUDE_BIN`, `config.py:27`) | `detector.py:124-127`, `recovery.py:734`, `cli.py:278` | session state query, the supervised run, `reply` |
-| `notify-send` (`config.NOTIFY_BIN`, `config.py:140`) | `notifier.py:98-102` | desktop notification, disabled with `CW_NOTIFY=0` |
+| `notify-send` (`config.NOTIFY_BIN`, `config.py:153`) | `notifier.py:150-154` | desktop notification, disabled with `CW_NOTIFY=0` and rate-limited via `CW_NOTIFY_MAX_PER_HOUR` (`notifier.py:118-145`), which only throttles the notifications - the log still records every one |
 | `systemd-run` | `recovery.py:79-86`, `recovery.py:dienst_kommando()` | wrapper only: puts a started run into a `--user --scope`, or into a transient service, with `MemoryHigh=8G`, `MemoryMax=12G`, `MemorySwapMax=2G` (`recovery.py:52-55`). Missing `systemd-run` means the run starts without that limit, not that it fails |
 | `systemctl` | `recovery.py:mainpid()` | asks the user manager for the `MainPID` of a run started as a transient service (`CW_RUN_LAUNCHER=service`). Talks to the manager's unix socket, never to a network |
 

@@ -71,9 +71,9 @@ Umlaute. Sprache ist überall Deutsch.
 ## Tests
 
 - `tests/test_<modul>.py`, Klassen erben von `unittest.TestCase`, Zusicherungen als
-  `self.assertEqual` / `self.assertTrue` — keine bloßen `assert`. Aktuell 403 Vorkommen
+  `self.assertEqual` / `self.assertTrue` — keine bloßen `assert`. Aktuell 425 Vorkommen
   (`grep -rhoE 'self\.assert[A-Za-z]+' tests/*.py | wc -l`).
-- Stand **2026-08-17**: **272 Tests, grün.** Gezählt mit
+- Stand **2026-08-18**: **280 Tests, grün.** Gezählt mit
   `grep -rhoE "^\s+def test_" tests/*.py | wc -l`, gefahren mit
   `python3 -m unittest discover -s tests -q`. Beide Zahlen wachsen laufend — sie stehen
   hier mit Datum und Messbefehl, damit sichtbar wird, wenn sie veralten. Vorher standen

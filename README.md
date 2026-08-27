@@ -240,6 +240,7 @@ under `[Service]`); the CLI picks them up from your shell.
 | `CW_LOG_REPEAT_INTERVAL` | `1800` | seconds an unchanged decision stays quiet (`0` = log every pass) |
 | `CW_NOTIFY` | `1` | desktop notifications |
 | `CW_NOTIFY_BIN` | `notify-send` | notification program |
+| `CW_NOTIFY_MAX_PER_HOUR` | `0` | hard ceiling for desktop notifications per sliding hour, the throttle notice included, `0` = no ceiling. The last slot of the hour carries a notice that further ones are log-only; the log always keeps everything |
 | `CW_BACKUP_DIR` | `~/backups` | target directory of `bin/backup-repo` (that script only, not read by the daemon) |
 
 ## Layout
@@ -267,7 +268,7 @@ Runtime data (not in the repository): `state.db`, `watchdog.log`,
 python3 -m unittest discover -s tests
 ```
 
-245 tests, no third-party packages, no network, no sleeps, no real
+280 tests, no third-party packages, no network, no sleeps, no real
 subprocesses; the suite runs in well under a second. Covered are the
 classification (including real event sequences from actual runs), the backoff
 rules, the safety invariant that observed sessions are never touched, and the

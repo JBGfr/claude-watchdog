@@ -152,6 +152,17 @@ LOG_REPEAT_INTERVAL = _env_int("CW_LOG_REPEAT_INTERVAL", 1800)
 NOTIFY_ENABLED = os.environ.get("CW_NOTIFY", "1") not in ("0", "false", "no")
 NOTIFY_BIN = os.environ.get("CW_NOTIFY_BIN", "notify-send")
 
+#: Obergrenze fuer Desktop-Meldungen in einer gleitenden Stunde. Laeuft eine
+#: Flotte in eine Schleife, schiebt notify-send sonst Dutzende Blasen
+#: uebereinander und der Bildschirm ist unbenutzbar. Ist die Grenze erreicht,
+#: geht als letzte Meldung der Stunde ein Hinweis raus, dass ab jetzt nur noch
+#: das Log mitschreibt - eine stille Drossel waere von einem Ausfall des
+#: Melders nicht zu unterscheiden. Das Log bekommt in jedem Fall alles.
+#: 0 (Vorgabe) = unbegrenzt; negative und unlesbare Werte gelten als 0.
+NOTIFY_MAX_PER_HOUR = _env_int("CW_NOTIFY_MAX_PER_HOUR", 0)
+if NOTIFY_MAX_PER_HOUR < 0:
+    NOTIFY_MAX_PER_HOUR = 0
+
 
 # --------------------------------------------------------------------------
 # Auto-Attach
