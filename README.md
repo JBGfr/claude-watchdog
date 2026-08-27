@@ -16,6 +16,12 @@ watchdog reads the transcripts Claude Code writes anyway
 German version of this document: [README.de.md](README.de.md).
 Data flow, invariants and how to verify them: [SECURITY.md](SECURITY.md).
 
+![claude-watchdog status in demo mode](assets/screenshot.png)
+
+*The picture comes from demo mode (`CW_DEMO=1 claude-watchdog status`), which
+replaces the task list with invented ones — the real one carries session titles
+and project paths.*
+
 ## Two modes
 
 | Mode | Where it comes from | What the watchdog may do |

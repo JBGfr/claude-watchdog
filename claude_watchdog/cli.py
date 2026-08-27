@@ -13,6 +13,7 @@ from typing import Optional
 
 from . import config, daemon, detector, logging_setup, recovery, transcript
 from .models import Mode, Status, Task
+from . import demo
 from .registry import Registry, make_task
 
 PROG = "claude-watchdog"
@@ -333,7 +334,10 @@ def cmd_run(args: argparse.Namespace, reg: Registry) -> int:
 def cmd_status(args: argparse.Namespace, reg: Registry) -> int:
     tasks = reg.list(include_terminal=True)
     active = [t for t in tasks if not t.status.is_terminal]
-    print(f"Watchdog-Verzeichnis : {config.BASE_DIR}")
+    # Im Demo-Modus steht hier ein neutraler Pfad: die Kopfzeile landet sonst
+    # mit dem echten Benutzernamen im Bild, das die Doku zeigt.
+    basis = "/home/user/.claude-watchdog" if demo.aktiv() else config.BASE_DIR
+    print(f"Watchdog-Verzeichnis : {basis}")
     print(f"Kill-Switch          : "
           f"{'AKTIV (' + str(config.STOP_FILE) + ')' if config.stop_requested() else 'inaktiv'}")
     print(f"Neustarts (1h)       : {reg.restarts_last_hour()}/{config.MAX_RESTARTS_PER_HOUR}")
@@ -422,11 +426,38 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+class _DemoRegistry:
+    """Registry-Attrappe fuer den Demo-Modus (CW_DEMO=1).
+
+    Nur so viel Oberflaeche, wie `status` und `list` brauchen. Sie liest und
+    schreibt nichts: die echte state.db bleibt unberuehrt, und ein Bild der
+    Ausgabe zeigt erfundene Auftraege statt fremder Sitzungstitel.
+    """
+
+    def list(self, include_terminal: bool = False) -> list:
+        alle = demo.tasks()
+        if include_terminal:
+            return alle
+        return [t for t in alle if not t.status.is_terminal]
+
+    def restarts_last_hour(self) -> int:
+        return 2
+
+    def close(self) -> None:
+        pass
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command != "run":
         logging_setup.setup(verbose=args.verbose, to_console=False)
-    reg = Registry()
+    # Der Demo-Modus gilt nur fuer die reinen Anzeigebefehle. Alles, was
+    # eingreift, braucht die echte Registry - sonst liefe ein 'add' oder 'rm'
+    # ins Leere und meldete trotzdem Erfolg.
+    if demo.aktiv() and args.command in ("status", "list"):
+        reg = _DemoRegistry()
+    else:
+        reg = Registry()
     try:
         return args.func(args, reg)
     finally:

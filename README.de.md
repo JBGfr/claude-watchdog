@@ -15,6 +15,12 @@ headless Lauf.
 Was der Watchdog liest, schreibt und startet — und wie man das selbst nachprüft
 — steht in [SECURITY.md](SECURITY.md).
 
+![claude-watchdog status im Demo-Modus](assets/screenshot.png)
+
+*Das Bild entsteht im Demo-Modus (`CW_DEMO=1 claude-watchdog status`), der die
+Taskliste durch erfundene ersetzt — die echte trägt Sitzungstitel und
+Projektpfade.*
+
 ## Zwei Betriebsarten
 
 | Modus | Herkunft | Was der Watchdog darf |
